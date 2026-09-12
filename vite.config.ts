@@ -15,7 +15,7 @@ const PROJECT_ROOT = import.meta.dirname;
 const LOG_DIR = path.join(PROJECT_ROOT, ".manus-logs");
 const MAX_LOG_SIZE_BYTES = 1 * 1024 * 1024; // 1MB per log file
 const TRIM_TARGET_BYTES = Math.floor(MAX_LOG_SIZE_BYTES * 0.6); // Trim to 60% to avoid constant re-trimming
-
+const API_URL = process.env.VITE_API_URL || "http://127.0.0.1:8080";
 type LogSource = "browserConsole" | "networkRequests" | "sessionReplay";
 
 function ensureLogDir() {
@@ -173,12 +173,12 @@ export default defineConfig({
     proxy: {
       // Standalone client dev server: forward API and uploads to the
       // API-only backend process (npm run dev:api, port 8080).
-      '/api': {
-        target: 'http://127.0.0.1:8080',
+      "/api": {
+        target: API_URL,
         changeOrigin: true,
       },
-      '/uploads': {
-        target: 'http://127.0.0.1:8080',
+      "/uploads": {
+        target: API_URL,
         changeOrigin: true,
       },
     },
