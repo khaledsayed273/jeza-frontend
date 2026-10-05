@@ -10,21 +10,38 @@ import { api } from "@/lib/api";
  * Two tabs: HR Forms (Excel/PDF download) | Letters (AI generator)
  */
 
-// Helper: open file in new tab (works with CDN redirects)
-function downloadFile(url: string, filename: string) {
-  // Fetch the file then trigger download to bypass CDN redirect issues
-  fetch(url)
-    .then((res) => res.blob())
-    .then((blob) => {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(a.href);
-    })
-    .catch(() => window.open(url, "_blank"));
+// Helper: download fresh copy (bypasses browser + edge cache for in-place file updates)
+function withCacheBuster(url: string, version?: unknown) {
+  const v = version ?? Date.now();
+  try {
+    const u = new URL(url, window.location.origin);
+    u.searchParams.set("v", String(v));
+    return u.toString();
+  } catch {
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}v=${encodeURIComponent(String(v))}`;
+  }
+}
+
+async function downloadFile(url: string, filename: string, version?: unknown) {
+  // Fetch the file then trigger download to bypass CDN redirect issues.
+  // cache:'no-store' + `v=` query forces a fresh origin fetch so an
+  // updated file saved under the same path doesn't serve the old cached copy.
+  const freshUrl = withCacheBuster(url, version);
+  try {
+    const res = await fetch(freshUrl, { cache: "no-store" });
+    if (!res.ok) throw new Error(`Download failed: ${res.status}`);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch {
+    window.open(freshUrl, "_blank");
+  }
 }
 
 export default function TemplatesPage() {
@@ -261,7 +278,7 @@ export default function TemplatesPage() {
                   {/* Download button */}
                   <div className="flex flex-col gap-1.5 flex-shrink-0">
                     <button
-                      onClick={() => downloadFile(form.file, `${form.code}-${form.ar}.${form.file.split('.').pop()}`)}
+                      onClick={() => downloadFile(form.file, `${form.code}-${form.ar}.${form.file.split('.').pop()}`, form.updatedAt ?? form.updated ?? form.version ?? form.mtime)}
                       className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-bold transition-all hover:scale-105 active:scale-95"
                       style={{
                         background: `linear-gradient(135deg, ${ACCENT}, oklch(0.65 0.12 85))`,
