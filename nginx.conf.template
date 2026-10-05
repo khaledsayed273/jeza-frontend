@@ -39,8 +39,18 @@ server {
     add_header Cache-Control "no-store";
   }
 
-  # SPA fallback — all routes serve index.html
+  # SPA entry — must NEVER be cached (it references hashed assets + API file list).
+  # Without this, Cloudflare/browsers serve a stale index.html after each deploy.
+  location = /index.html {
+    expires -1;
+    add_header Cache-Control "no-store, no-cache, must-revalidate" always;
+    try_files $uri =404;
+  }
+
+  # SPA fallback — all routes serve index.html (never cached)
   location / {
+    expires -1;
+    add_header Cache-Control "no-cache, must-revalidate" always;
     try_files $uri $uri/ /index.html;
   }
 }
