@@ -21,6 +21,18 @@ export class ApiError extends Error {
   }
 }
 
+export const API_BASE_URL = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").trim().replace(/\/+$/, "");
+
+const API_PREFIX = "/api/v1";
+
+/** Function الوحيدة لبناء روابط الـ API من الـ base الموجود في .env */
+export function buildApiUrl(path: string): string {
+  if (/^https?:\/\//.test(path)) return path;
+  const clean = path.replace(/^\/+/, "");
+  if (!API_BASE_URL) return `${API_PREFIX}/${clean}`;
+  return `${API_BASE_URL}${API_PREFIX}/${clean}`;
+}
+
 let isRefreshing = false;
 let refreshPromise: Promise<boolean> | null = null;
 
@@ -29,7 +41,7 @@ async function refreshAccessToken(): Promise<boolean> {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      const res = await fetch("/api/auth/refresh", { method: "POST", credentials: "include" });
+      const res = await fetch(buildApiUrl("auth/refresh"), { method: "POST", credentials: "include" });
       return res.ok;
     } catch {
       return false;
@@ -40,14 +52,12 @@ async function refreshAccessToken(): Promise<boolean> {
   return refreshPromise;
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
-
 async function request<T = any>(
   path: string,
   options: { method?: string; body?: unknown; headers?: Record<string, string> } = {},
 ): Promise<T> {
   const { method, body, headers } = options;
-  const url = path.startsWith("http") ? path : `${API_BASE_URL}${path}`;
+  const url = buildApiUrl(path);
   const doFetch = () =>
     fetch(url, {
       method: method ?? (body !== undefined ? "POST" : "GET"),
@@ -61,7 +71,7 @@ async function request<T = any>(
 
   let res = await doFetch();
 
-  if (res.status === 401 && !path.startsWith("/api/auth/")) {
+  if (res.status === 401 && !path.replace(/^\/+/, "").startsWith("auth/")) {
     const refreshed = await refreshAccessToken();
     if (refreshed) {
       res = await doFetch();
@@ -110,63 +120,67 @@ function makeMutation<Input, Output>(fn: (input: Input) => Promise<Output>): Mut
 }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
-const authMe = () => request<PublicUser | null>("/api/auth/me");
+const authMe = () => request<PublicUser | null>("auth/me");
 const authLogin = (input: { email: string; password: string }) =>
-  request<{ user: PublicUser }>("/api/auth/login", { method: "POST", body: input });
+  request<{ user: PublicUser }>("auth/login", { method: "POST", body: input });
 const authRegister = (input: { email: string; password: string; name: string }) =>
-  request<{ user: PublicUser }>("/api/auth/register", { method: "POST", body: input });
-const authLogout = () => request<{ success: boolean }>("/api/auth/logout", { method: "POST" });
+  request<{ user: PublicUser }>("auth/register", { method: "POST", body: input });
+const authLogout = () => request<{ success: boolean }>("auth/logout", { method: "POST" });
 const authUpdateProfile = (input: { name?: string; email?: string }) =>
-  request<{ success: boolean }>("/api/auth/profile", { method: "PATCH", body: input });
+  request<{ success: boolean }>("auth/profile", { method: "PATCH", body: input });
 const authChangePassword = (input: { currentPassword: string; newPassword: string }) =>
-  request<{ success: boolean }>("/api/auth/change-password", { method: "POST", body: input });
-const authSessions = () => request<unknown[]>("/api/auth/sessions");
+  request<{ success: boolean }>("auth/change-password", { method: "POST", body: input });
+const authSessions = () => request<unknown[]>("auth/sessions");
 const authRevokeOtherSessions = () =>
-  request<{ success: boolean }>("/api/auth/revoke-other-sessions", { method: "POST" });
+  request<{ success: boolean }>("auth/revoke-other-sessions", { method: "POST" });
+const authForgotPassword = (input: { email: string }) =>
+  request<{ success: boolean }>("auth/forgot-password", { method: "POST", body: input });
+const authResetPassword = (input: { token: string; password: string }) =>
+  request<{ success: boolean }>("auth/reset-password", { method: "POST", body: input });
 
 // ── HR Explainers ──────────────────────────────────────────────────────────
-const hrExplainersGetAll = () => request("/api/content/hr-explainers");
+const hrExplainersGetAll = () => request("content/hr-explainers");
 // ── Updates ────────────────────────────────────────────────────────────────
-const updatesGetAll = () => request("/api/content/updates");
+const updatesGetAll = () => request("content/updates");
 // ── Templates ──────────────────────────────────────────────────────────────
-const templatesGetAll = () => request("/api/content/templates");
+const templatesGetAll = () => request("content/templates");
 // ── Policies ───────────────────────────────────────────────────────────────
-const policiesGetAll = () => request("/api/content/policies");
+const policiesGetAll = () => request("content/policies");
 // ── Declarations ───────────────────────────────────────────────────────────
-const declarationsGetAll = () => request("/api/content/declarations");
+const declarationsGetAll = () => request("content/declarations");
 // ── Job Descriptions ──────────────────────────────────────────────────────
-const jobDescriptionsGetAll = () => request("/api/content/job-descriptions");
+const jobDescriptionsGetAll = () => request("content/job-descriptions");
 // ── Quiz ──────────────────────────────────────────────────────────────────
-const quizGetAll = () => request("/api/content/quiz");
+const quizGetAll = () => request("content/quiz");
 // ── HC Indicators ─────────────────────────────────────────────────────────
-const hcIndicatorsGetAll = () => request("/api/content/hc-indicators");
+const hcIndicatorsGetAll = () => request("content/hc-indicators");
 // ── Config ────────────────────────────────────────────────────────────────
-const configGetAll = () => request<Record<string, string>>("/api/config");
+const configGetAll = () => request<Record<string, string>>("config");
 // ── Calculator ────────────────────────────────────────────────────────────
-const calculatorGetAll = () => request("/api/calculator");
+const calculatorGetAll = () => request("calculator");
 // ── About ─────────────────────────────────────────────────────────────────
-const aboutGetAll = () => request("/api/site/about");
+const aboutGetAll = () => request("site/about");
 // ── Resources ─────────────────────────────────────────────────────────────
-const resourcesGetAll = () => request("/api/site/resources");
+const resourcesGetAll = () => request("site/resources");
 // ── FAQ ───────────────────────────────────────────────────────────────────
-const faqGetAll = () => request("/api/site/faq");
+const faqGetAll = () => request("site/faq");
 // ── Home ──────────────────────────────────────────────────────────────────
-const homeGetAll = () => request("/api/site/home");
+const homeGetAll = () => request("site/home");
 // ── HR Cost ───────────────────────────────────────────────────────────────
-const hrCostGetAll = () => request("/api/hr-cost");
+const hrCostGetAll = () => request("hr-cost");
 // ── Leave ─────────────────────────────────────────────────────────────────
-const leaveGetAll = () => request("/api/leave");
+const leaveGetAll = () => request("leave");
 // ── Turnover ──────────────────────────────────────────────────────────────
-const turnoverGetAll = () => request("/api/turnover");
+const turnoverGetAll = () => request("turnover");
 // ── Employee Market ───────────────────────────────────────────────────────
-const employeeMarketGetAll = () => request("/api/employee-market");
+const employeeMarketGetAll = () => request("employee-market");
 // ── Training ──────────────────────────────────────────────────────────────────
 const trainingGetAll = () =>
   request<{
     decisions: Array<{ num: string; ar: string; en: string }>;
     sectors: Array<{ ar: string; en: string }>;
     disclosurePoints: Array<{ num: string; titleAr: string; titleEn: string; textAr: string; textEn: string }>;
-  }>("/api/training");
+  }>("training");
 
 // ── Letters ──────────────────────────────────────────────────────────────────
 const lettersGenerate = (input: {
@@ -175,11 +189,11 @@ const lettersGenerate = (input: {
   recipientType: "قطاع_خاص" | "بنك" | "جهة_حكومية";
   recipientName: string;
   letterIdea: string;
-}) => request<{ letter: string }>("/api/letters/generate", { method: "POST", body: input });
+}) => request<{ letter: string }>("letters/generate", { method: "POST", body: input });
 
 // ── Contact ──────────────────────────────────────────────────────────────────
 const contactSubmitRequest = (input: unknown) =>
-  request<{ success: boolean }>("/api/contact/submit", { method: "POST", body: input });
+  request<{ success: boolean }>("contact/submit", { method: "POST", body: input });
 
 // ── HC-KPI ───────────────────────────────────────────────────────────────────
 type SessionInput = { sessionToken?: string };
@@ -188,49 +202,49 @@ function hcKpiHeaders(input?: SessionInput) {
 }
 
 const hcKpiListOrganizations = (input?: SessionInput) =>
-  request("/api/hc-kpi/organizations", { headers: hcKpiHeaders(input) });
+  request("hc-kpi/organizations", { headers: hcKpiHeaders(input) });
 const hcKpiCreateOrganization = (input: SessionInput & { nameAr: string; nameEn?: string; industry?: string; size?: string }) =>
-  request("/api/hc-kpi/organizations", { method: "POST", body: input, headers: hcKpiHeaders(input) });
+  request("hc-kpi/organizations", { method: "POST", body: input, headers: hcKpiHeaders(input) });
 const hcKpiUpdateOrganization = (input: SessionInput & { id: number; nameAr: string; nameEn?: string; industry?: string; size?: string }) =>
-  request(`/api/hc-kpi/organizations/${input.id}`, { method: "PATCH", body: input, headers: hcKpiHeaders(input) });
+  request(`hc-kpi/organizations/${input.id}`, { method: "PATCH", body: input, headers: hcKpiHeaders(input) });
 const hcKpiDeleteOrganization = (input: SessionInput & { id: number }) =>
-  request(`/api/hc-kpi/organizations/${input.id}`, { method: "DELETE", headers: hcKpiHeaders(input) });
+  request(`hc-kpi/organizations/${input.id}`, { method: "DELETE", headers: hcKpiHeaders(input) });
 const hcKpiListReports = (input: SessionInput & { organizationId: number }) =>
-  request(`/api/hc-kpi/organizations/${input.organizationId}/reports`, { headers: hcKpiHeaders(input) });
+  request(`hc-kpi/organizations/${input.organizationId}/reports`, { headers: hcKpiHeaders(input) });
 const hcKpiGetReport = (input: SessionInput & { reportId: number }) =>
-  request(`/api/hc-kpi/reports/${input.reportId}`, { headers: hcKpiHeaders(input) });
+  request(`hc-kpi/reports/${input.reportId}`, { headers: hcKpiHeaders(input) });
 const hcKpiCreateReport = (input: SessionInput & Record<string, unknown>) =>
-  request("/api/hc-kpi/reports", { method: "POST", body: input, headers: hcKpiHeaders(input) });
+  request("hc-kpi/reports", { method: "POST", body: input, headers: hcKpiHeaders(input) });
 const hcKpiUpdateReportStatus = (input: SessionInput & { reportId: number; status: string }) =>
-  request(`/api/hc-kpi/reports/${input.reportId}/status`, { method: "PATCH", body: { status: input.status }, headers: hcKpiHeaders(input) });
+  request(`hc-kpi/reports/${input.reportId}/status`, { method: "PATCH", body: { status: input.status }, headers: hcKpiHeaders(input) });
 const hcKpiDeleteReport = (input: SessionInput & { reportId: number }) =>
-  request(`/api/hc-kpi/reports/${input.reportId}`, { method: "DELETE", headers: hcKpiHeaders(input) });
+  request(`hc-kpi/reports/${input.reportId}`, { method: "DELETE", headers: hcKpiHeaders(input) });
 const hcKpiUpdateEntry = (input: { entryId: number } & Record<string, unknown>) =>
-  request(`/api/hc-kpi/entries/${input.entryId}`, { method: "PATCH", body: input });
+  request(`hc-kpi/entries/${input.entryId}`, { method: "PATCH", body: input });
 const hcKpiAddCustomIndicator = (input: { reportId: number } & Record<string, unknown>) =>
-  request(`/api/hc-kpi/reports/${input.reportId}/indicators`, { method: "POST", body: input });
+  request(`hc-kpi/reports/${input.reportId}/indicators`, { method: "POST", body: input });
 const hcKpiDeleteEntry = (input: { entryId: number }) =>
-  request(`/api/hc-kpi/entries/${input.entryId}`, { method: "DELETE" });
+  request(`hc-kpi/entries/${input.entryId}`, { method: "DELETE" });
 
 // ── Subscriptions ────────────────────────────────────────────────────────────
-const subsListPlans = () => request("/api/subscriptions/plans");
-const subsMySubscription = () => request("/api/subscriptions/me");
-const subsListAllSubscriptions = () => request("/api/subscriptions");
+const subsListPlans = () => request("subscriptions/plans");
+const subsMySubscription = () => request("subscriptions/me");
+const subsListAllSubscriptions = () => request("subscriptions");
 const subsCreateSubscription = (input: unknown) =>
-  request("/api/subscriptions", { method: "POST", body: input });
+  request("subscriptions", { method: "POST", body: input });
 
 // ── Tickets ──────────────────────────────────────────────────────────────────
-const ticketsMyTickets = () => request("/api/tickets");
-const ticketsListAll = () => request("/api/tickets/all");
+const ticketsMyTickets = () => request("tickets");
+const ticketsListAll = () => request("tickets/all");
 const ticketsGetTicket = (input: { ticketId: number }) =>
-  request(`/api/tickets/${input.ticketId}`);
-const ticketsCreate = (input: unknown) => request("/api/tickets", { method: "POST", body: input });
+  request(`tickets/${input.ticketId}`);
+const ticketsCreate = (input: unknown) => request("tickets", { method: "POST", body: input });
 const ticketsAddMessage = (input: { ticketId: number; message: string }) =>
-  request(`/api/tickets/${input.ticketId}/messages`, { method: "POST", body: { message: input.message } });
+  request(`tickets/${input.ticketId}/messages`, { method: "POST", body: { message: input.message } });
 const ticketsAdminAddMessage = (input: { ticketId: number; message: string }) =>
-  request(`/api/tickets/${input.ticketId}/admin-messages`, { method: "POST", body: { message: input.message } });
+  request(`tickets/${input.ticketId}/admin-messages`, { method: "POST", body: { message: input.message } });
 const ticketsUpdateStatus = (input: { ticketId: number; status: string }) =>
-  request(`/api/tickets/${input.ticketId}/status`, { method: "PATCH", body: { status: input.status } });
+  request(`tickets/${input.ticketId}/status`, { method: "PATCH", body: { status: input.status } });
 
 export const api = {
   auth: {
@@ -242,6 +256,8 @@ export const api = {
     changePassword: { useMutation: makeMutation(authChangePassword) },
     sessions: { useQuery: makeQuery("auth.sessions", authSessions) },
     revokeOtherSessions: { useMutation: makeMutation(authRevokeOtherSessions) },
+    forgotPassword: { useMutation: makeMutation(authForgotPassword) },
+    resetPassword: { useMutation: makeMutation(authResetPassword) },
   },
   hrExplainers: {
     getAll: { useQuery: makeQuery("hrExplainers.all", hrExplainersGetAll) },
