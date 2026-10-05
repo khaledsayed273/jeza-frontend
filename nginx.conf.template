@@ -1,0 +1,45 @@
+server {
+  listen 80;
+  server_name _;
+
+  root /usr/share/nginx/html;
+  index index.html;
+
+  gzip on;
+  gzip_types text/css application/javascript application/json image/svg+xml;
+  gzip_min_length 1024;
+
+  # Long-cache hashed build assets
+  location /assets/ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    try_files $uri =404;
+  }
+
+  # File uploads served by the backend (proxied, same-origin for the browser).
+  # BACKEND_UPLOADS_URL is injected at container start (see docker-entrypoint.sh).
+  # Example: http://mowakba-backend-dev-hnfhqd:8080
+  # NOTE: the template is rendered with envsubst at startup, so the running
+  # config contains a static URL (no nginx resolver needed).
+  location /uploads/ {
+    # Must exceed the backend per-file limit (10MB).
+    client_max_body_size 50m;
+
+    proxy_pass ${BACKEND_UPLOADS_URL};
+    proxy_http_version 1.1;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    proxy_connect_timeout 10s;
+    proxy_read_timeout 120s;
+
+    # Filenames are content-hashed, safe to cache.
+    expires 1d;
+  }
+
+  # SPA fallback — all routes serve index.html
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}
