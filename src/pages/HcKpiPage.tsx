@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
 import { useLang } from "../contexts/LanguageContext";
 import { useTheme } from "../contexts/ThemeContext";
-import { api } from "@/lib/api";
+import { api, buildApiUrl } from "@/lib/api";
 
 // ─────────────────────────────────────────────
 // Design tokens
@@ -532,7 +532,7 @@ export default function HcKpiPage() {
                   {reportDetail.report.status === "completed" ? "✅ مكتمل" : "📝 مسودة"}
                 </button>
                 <button
-                  onClick={() => window.open(`/api/hc-kpi-pdf/${reportDetail.report.id}`, "_blank")}
+                  onClick={() => window.open(buildApiUrl(`hc-kpi-pdf/${reportDetail.report.id}`), "_blank")}
                   style={{ padding: "0.45rem 0.85rem", borderRadius: "0.6rem", background: TEAL_DIM, color: TEAL, border: `1px solid ${TEAL_BORDER}`, cursor: "pointer", fontWeight: 700, fontSize: "0.78rem" }}>
                   📄 PDF
                 </button>

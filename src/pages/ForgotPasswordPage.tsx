@@ -3,6 +3,7 @@ import { useLang } from "../contexts/LanguageContext";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
+import { buildApiUrl } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const [, navigate] = useLocation();
@@ -14,7 +15,7 @@ export default function ForgotPasswordPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await fetch("/api/auth/forgot-password", {
+      const res = await fetch(buildApiUrl("auth/forgot-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),

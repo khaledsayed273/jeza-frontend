@@ -3,6 +3,7 @@ import { useLang } from "../contexts/LanguageContext";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { toast } from "sonner";
+import { buildApiUrl } from "@/lib/api";
 
 export default function ResetPasswordPage() {
   const [, navigate] = useLocation();
@@ -26,7 +27,7 @@ export default function ResetPasswordPage() {
       return;
     }
     try {
-      const res = await fetch("/api/auth/reset-password", {
+      const res = await fetch(buildApiUrl("auth/reset-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),
